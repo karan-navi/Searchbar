@@ -65,6 +65,17 @@ def search():
         print(traceback.format_exc())
         print("===========================\n")
         return jsonify({'exact': [], 'fuzzy': [], 'error': str(e)})
+@app.route('/profile/<name>')
+def profile(name):
+    # This simulates a profile page. In a real app, you'd fetch the item details from the DB here.
+    return f"""
+    <div style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+        <h1>Product Profile</h1>
+        <h2>{name}</h2>
+        <a href="/" style="color: #3b82f6; text-decoration: none;">&larr; Back to Search</a>
+    </div>
+    """
 
 if __name__ == '__main__':
     app.run(debug=True)
+
