@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Store Search POC</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f9fafb; display: flex; justify-content: center; padding-top: 100px; }
+        .search-container { position: relative; width: 450px; }
+        
+        /* The inputs */
+        .search-box { width: 100%; padding: 15px 20px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; z-index: 2; position: relative; background: transparent; outline: none; box-sizing: border-box;}
+        .search-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        
+        /* The ghost text (prefill effect) */
+        .ghost-text { position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px; font-size: 16px; color: #9ca3af; z-index: 1; box-sizing: border-box; pointer-events: none; border: 1px solid transparent; background: white; border-radius: 8px;}
+        
+        /* The dropdown */
+        .dropdown { position: absolute; top: 60px; left: 0; width: 100%; background: white; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; display: none; overflow: hidden;}
+        .dropdown-item { padding: 12px 20px; border-bottom: 1px solid #f3f4f6; cursor: pointer; color: #1f2937; }
+        .dropdown-item:hover { background: #f3f4f6; }
+        .dropdown-category { font-size: 11px; color: #6b7280; background: #f9fafb; padding: 6px 20px; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #f3f4f6;}
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <input type="text" id="ghost-input" class="ghost-text" disabled>
+        <input type="text" id="search-input" class="search-box" placeholder="Search for items, courses..." autocomplete="off">
+        
+        <div id="dropdown" class="dropdown"></div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const ghostInput = document.getElementById('ghost-input');
+        const dropdown = document.getElementById('dropdown');
+
+        searchInput.addEventListener('input', async (e) => {
+            const query = e.target.value;
+            
+            if (query.length === 0) {
+                dropdown.style.display = 'none';
+                ghostInput.value = '';
+                return;
+            }
+
+            // Ask the Python backend for results
+            const response = await fetch(`/search?q=${query}`);
+            const data = await response.json();
+            
+            dropdown.innerHTML = '';
+            let hasResults = false;
+
+            // 1. Render Exact Matches
+            if (data.exact.length > 0) {
+                hasResults = true;
+                
+                // --- THE GHOST TEXT LOGIC ---
+                // If the top result starts exactly with what the user typed, show the rest as ghost text
+                const firstMatch = data.exact[0].name;
+                if (firstMatch.toLowerCase().startsWith(query.toLowerCase())) {
+                    // Match the capitalization of what the user typed, append the rest of the suggestion
+                    ghostInput.value = query + firstMatch.substring(query.length);
+                } else {
+                    ghostInput.value = '';
+                }
+
+                // Create exact match dropdown rows
+                data.exact.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.innerHTML = `<strong>${item.name}</strong> <span style="color:#059669; float:right;">$${item.price}</span>`;
+                    div.onclick = () => selectItem(item.name);
+                    dropdown.appendChild(div);
+                });
+            } else {
+                ghostInput.value = ''; // Clear ghost if no exact match
+            }
+
+            // 2. Render Approximate Matches ("Did you mean?")
+            if (data.fuzzy.length > 0) {
+                hasResults = true;
+                const header = document.createElement('div');
+                header.className = 'dropdown-category';
+                header.innerText = 'Did you mean?';
+                dropdown.appendChild(header);
+
+                data.fuzzy.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.innerText = item.name;
+                    div.onclick = () => selectItem(item.name);
+                    dropdown.appendChild(div);
+                });
+            }
+
+            // 3. Render Empty State
+            if (!hasResults) {
+                dropdown.innerHTML = '<div class="dropdown-item" style="color:#ef4444;">No results found</div>';
+            }
+            
+            dropdown.style.display = 'block';
+        });
+
+        // Helper function for when a user clicks an item
+        function selectItem(name) {
+            searchInput.value = name;
+            dropdown.style.display = 'none';
+            ghostInput.value = '';
+        }
+
+        // Hide dropdown if user clicks somewhere else on the page
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
