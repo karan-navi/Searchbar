@@ -38,7 +38,7 @@
         searchInput.addEventListener('input', async (e) => {
             const query = e.target.value;
             
-            if (query.length === 0) {
+            if (query.length < 3) {
                 dropdown.style.display = 'none';
                 ghostInput.value = '';
                 return;
@@ -117,4 +117,5 @@
         });
     </script>
 </body>
+
 </html>
