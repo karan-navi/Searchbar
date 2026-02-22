@@ -1,11 +1,15 @@
 from flask import Flask, request, jsonify, render_template
 import sqlite3
 import difflib
+import os
 
 app = Flask(__name__)
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'inventory.db')
+
 def get_all_names():
-    conn = sqlite3.connect('inventory.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT product_name FROM products")
     names = [row[0] for row in cursor.fetchall()]
@@ -24,7 +28,7 @@ def search():
     if not query:
         return jsonify({'exact': [], 'fuzzy': []})
     
-    conn = sqlite3.connect('inventory.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     search_term = f"%{query}%"
@@ -48,4 +52,5 @@ def search():
     })
 
 if __name__ == '__main__':
+
     app.run(debug=True)
