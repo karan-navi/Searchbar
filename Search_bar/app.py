@@ -2,19 +2,23 @@ from flask import Flask, request, jsonify, render_template
 import sqlite3
 import difflib
 import os
+import traceback
 
 app = Flask(__name__)
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'inventory.db')
 
 def get_all_names():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT product_name FROM products")
-    names = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return names
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT product_name FROM products")
+        names = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return names
+    except Exception as e:
+        print("Error in get all names",e)
+        return []
 
 @app.route('/')
 def index():
@@ -23,34 +27,44 @@ def index():
 
 @app.route('/search')
 def search():
-    # 1. Get what the user typed
-    query = request.args.get('q', '').strip()
-    if not query:
-        return jsonify({'exact': [], 'fuzzy': []})
+    try:
+        # 1. Get what the user typed
+        query = request.args.get('q', '').strip()
+        if not query:
+            return jsonify({'exact': [], 'fuzzy': []})
     
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
     
-    search_term = f"%{query}%"
-    cursor.execute("SELECT product_name, price FROM products WHERE product_name LIKE ? LIMIT 5", (search_term,))
-    exact_matches = [{'name': row[0], 'price': row[1]} for row in cursor.fetchall()]
-    conn.close()
+        search_term = f"%{query}%"
+        cursor.execute("""SELECT product_name, price, category 
+                   FROM products 
+                   WHERE product_name LIKE ? OR category Like?
+                   LIMIT 10""", (search_term,search_term))
+        exact_matches = [{'name': row[0], 'price': row[1], 'category': row[2]} for row in cursor.fetchall()]
+        conn.close()
 
-    fuzzy_matches = []
-    if len(exact_matches) < 3:
-        all_names = get_all_names()
-        exact_names = [m['name'] for m in exact_matches]
+        fuzzy_matches = []
+        if len(exact_matches) < 3:
+            all_names = get_all_names()
+            exact_names = [m['name'] for m in exact_matches]
         
-        suggestions = difflib.get_close_matches(query, all_names, n=3, cutoff=0.5)        
+            suggestions = difflib.get_close_matches(query, all_names, n=3, cutoff=0.5)        
 
-        fuzzy_names = [s for s in suggestions if s not in exact_names]
-        fuzzy_matches = [{'name': name} for name in fuzzy_names]
+            fuzzy_names = [s for s in suggestions if s not in exact_names]
+            fuzzy_matches = [{'name': name} for name in fuzzy_names]
 
-    return jsonify({
-        'exact': exact_matches,
-        'fuzzy': fuzzy_matches
-    })
+        return jsonify({
+            'exact': exact_matches,
+            'fuzzy': fuzzy_matches
+        })
+    
+    except Exception as e:
+        # THE TRAP: If anything crashes, print it loudly and return safe JSON!
+        print("\n=== PYTHON CRASH REPORT ===")
+        print(traceback.format_exc())
+        print("===========================\n")
+        return jsonify({'exact': [], 'fuzzy': [], 'error': str(e)})
 
 if __name__ == '__main__':
-
     app.run(debug=True)
