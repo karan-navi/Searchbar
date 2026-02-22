@@ -2,25 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Store Search POC</title>
+    <title>Dynamic Store Search</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f9fafb; margin: 0; display: flex; flex-direction: column; align-items: center; padding-top: 150px; transition: padding-top 0.5s ease; min-height: 100vh; }
+        /* MAIN LAYOUT & ANIMATIONS */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f9fafb; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding-top: 150px; /* Starting position */
+            transition: padding-top 0.5s ease; 
+            min-height: 100vh; 
+        }
+        
+        /* When search is active, it moves up to 40px from the top */
         body.search-active { padding-top: 40px; }
+
+        /* The search bar handles the "shrink" animation via width */
         .search-container { position: relative; width: 450px; transition: width 0.5s ease; }
         body.search-active .search-container { width: 350px; }
         
-        .search-box { width: 100%; padding: 15px 20px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; z-index: 2; position: relative; background: transparent; outline: none; box-sizing: border-box; transition: box-shadow 0.2s;}
+        /* INPUT BOXES */
+        .search-box { 
+            width: 100%; padding: 15px 20px; font-size: 16px; 
+            border: 1px solid #d1d5db; border-radius: 8px; 
+            z-index: 2; position: relative; background: transparent; 
+            outline: none; box-sizing: border-box; transition: box-shadow 0.2s;
+        }
         .search-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
-        .ghost-text { position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px; font-size: 16px; color: #9ca3af; z-index: 1; box-sizing: border-box; pointer-events: none; border: 1px solid transparent; background: white; border-radius: 8px;}
         
-        .dropdown { position: absolute; top: 60px; left: 0; width: 100%; background: white; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; display: none; overflow: hidden;}
+        .ghost-text { 
+            position: absolute; top: 0; left: 0; width: 100%; 
+            padding: 15px 20px; font-size: 16px; color: #9ca3af; 
+            z-index: 1; box-sizing: border-box; pointer-events: none; 
+            border: 1px solid transparent; background: white; border-radius: 8px;
+        }
+        
+        /* DROPDOWN */
+        .dropdown { 
+            position: absolute; top: 60px; left: 0; width: 100%; 
+            background: white; border: 1px solid #d1d5db; border-radius: 8px; 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; 
+            display: none; overflow: hidden;
+        }
         .dropdown-item { padding: 12px 20px; border-bottom: 1px solid #f3f4f6; cursor: pointer; color: #1f2937; }
         .dropdown-item:hover { background: #f3f4f6; }
 
-        /* FLASHCARD CSS */
+        /* FLASHCARDS */
         .flashcards-wrapper { width: 80%; max-width: 1000px; margin-top: 40px; display: none; }
         .flashcards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-        .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);}
+        .card { 
+            background: white; border: 1px solid #e5e7eb; border-radius: 12px; 
+            padding: 20px; text-align: center; cursor: pointer; 
+            transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
         .card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #3b82f6;}
         .card-category { font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 8px; }
         .card-title { font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 15px; }
@@ -52,6 +89,8 @@
         // 1. The Dropdown Logic (Typing)
         searchInput.addEventListener('input', async (e) => {
             const query = e.target.value;
+            
+            // Only search if 3 or more characters are typed
             if (query.length < 3) {
                 dropdown.style.display = 'none';
                 ghostInput.value = '';
@@ -63,22 +102,56 @@
             dropdown.innerHTML = '';
             
             if (data.exact.length > 0) {
-                const firstMatch = data.exact[0].name;
-                if (firstMatch.toLowerCase().startsWith(query.toLowerCase())) {
-                    ghostInput.value = query + firstMatch.substring(query.length);
-                } else { ghostInput.value = ''; }
+                // Separate Categories from Products
+                const matchedCategories = [...new Set(data.exact
+                    .map(item => item.category)
+                    .filter(cat => cat.toLowerCase().includes(query.toLowerCase()))
+                )];
 
-                data.exact.forEach(item => {
+                const matchedProducts = data.exact.filter(item => 
+                    item.name.toLowerCase().includes(query.toLowerCase())
+                );
+
+                // Handle Ghost Text for the closest match
+                const firstMatch = matchedCategories.length > 0 ? matchedCategories[0] : (matchedProducts.length > 0 ? matchedProducts[0].name : null);
+                if (firstMatch && firstMatch.toLowerCase().startsWith(query.toLowerCase())) {
+                    ghostInput.value = query + firstMatch.substring(query.length);
+                } else { 
+                    ghostInput.value = ''; 
+                }
+
+                // Add Category Suggestions first
+                matchedCategories.forEach(cat => {
                     const div = document.createElement('div');
                     div.className = 'dropdown-item';
-                    div.innerHTML = `<strong>${item.name}</strong> <span style="font-size: 12px; color: #9ca3af; margin-left: 8px;">[${item.category}]</span>`;
-                    // Teleport to profile on click
+                    div.innerHTML = `<strong>${cat}</strong> <span style="font-size: 12px; color: #3b82f6; margin-left: 8px;">[Category]</span>`;
+                    
+                    // Clicking a category auto-fills and triggers the flashcard view
+                    div.onclick = () => {
+                        searchInput.value = cat;
+                        dropdown.style.display = 'none';
+                        ghostInput.value = '';
+                        searchInput.dispatchEvent(new KeyboardEvent('keydown', {'key': 'Enter'}));
+                    };
+                    dropdown.appendChild(div);
+                });
+
+                // Add Product Matches next
+                matchedProducts.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.innerHTML = `<strong>${item.name}</strong> <span style="font-size: 12px; color: #9ca3af; margin-left: 8px;">[${item.category}]</span> <span style="color:#059669; float:right;">$${item.price}</span>`;
+                    
+                    // Clicking a product teleports to its profile
                     div.onclick = () => window.location.href = `/profile/${encodeURIComponent(item.name)}`;
                     dropdown.appendChild(div);
                 });
-            } else { ghostInput.value = ''; }
 
-            dropdown.style.display = data.exact.length > 0 ? 'block' : 'none';
+                dropdown.style.display = (matchedCategories.length > 0 || matchedProducts.length > 0) ? 'block' : 'none';
+            } else { 
+                ghostInput.value = ''; 
+                dropdown.style.display = 'none';
+            }
         });
 
         // 2. The "Enter" Key Logic (Trigger Animation & Flashcards)
@@ -93,55 +166,54 @@
                 ghostInput.value = '';
                 flashcardsWrapper.style.display = 'block';
 
-                // Fetch data for the flashcards
+                // Fetch data
                 const response = await fetch(`/search?q=${query}`);
                 const data = await response.json();
                 
                 flashcardsGrid.innerHTML = ''; // Clear old cards
 
                 if (data.exact.length > 0) {
-                    // Scenario: Found Items or Categories
+                    // Show Exact Matches
                     data.exact.forEach(item => {
                         flashcardsGrid.appendChild(createCard(item.name, item.category, item.price));
                     });
                 } else if (data.fuzzy.length > 0) {
-                    // Scenario: Typo - Suggest fuzzy matches
+                    // Show Fuzzy Suggestions
                     const msg = document.createElement('h3');
                     msg.className = 'message-title';
                     msg.innerText = `No exact match for "${query}". Did you mean:`;
                     flashcardsGrid.appendChild(msg);
 
                     data.fuzzy.forEach(item => {
-                        // We use a placeholder category/price for fuzzy suggestions
                         flashcardsGrid.appendChild(createCard(item.name, 'Suggestion', '---'));
                     });
                 } else {
-                    // Scenario: Nothing found at all
+                    // Show Not Found Error
                     flashcardsGrid.innerHTML = `
                         <div class="not-found">
                             <h2>No items found.</h2>
-                            <p>We couldn't find anything matching "${query}". Try searching for 'Programming' or 'Apple'.</p>
+                            <p>We couldn't find anything matching "${query}".</p>
                         </div>
                     `;
                 }
             }
         });
 
-        // Helper function to generate a flashcard HTML element
+        // Helper function for building flashcards
         function createCard(name, category, price) {
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-category">${category}</div>
                 <div class="card-title">${name}</div>
-                <div class="card-price">$${price}</div>
+                <div class="card-price">${price === '---' ? '' : '$'}${price}</div>
             `;
-            // Clicking a card teleports to the profile page
+            // Teleport to profile on click
             card.onclick = () => window.location.href = `/profile/${encodeURIComponent(name)}`;
             return card;
         }
 
-        // Hide dropdown if clicked outside
+        // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
                 dropdown.style.display = 'none';
