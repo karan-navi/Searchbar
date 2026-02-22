@@ -69,7 +69,7 @@
                 data.exact.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'dropdown-item';
-                    div.innerHTML = `<strong>${item.name}</strong> <span style="color:#059669; float:right;">$${item.price}</span>`;
+                    div.innerHTML = `<strong>${item.name}</strong> <span style="font-size: 12px; color: #9ca3af; margin-left: 8px;">[${item.category}]</span> <span style="color:#059669; float:right;">$${item.price}</span>`;
                     div.onclick = () => selectItem(item.name);
                     dropdown.appendChild(div);
                 });
@@ -117,5 +117,4 @@
         });
     </script>
 </body>
-
 </html>
